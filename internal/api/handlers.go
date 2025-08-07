@@ -93,15 +93,19 @@ func (s *Server) settingsHandler(w http.ResponseWriter, r *http.Request) {
 		for _, v := range vendors {
 			if vendor, ok := v.(map[string]interface{}); ok {
 				if brand, ok := vendor["brand"].(string); ok {
-					if brand != "seveneleven" {
-						s.Logger.Errorf("Unknown vendor brand '%s' for ESN %s (only 'seveneleven' supported)", brand, cameraid)
-						http.Error(w, fmt.Sprintf("Unknown vendor brand: %s (only 'seveneleven' supported)", brand), http.StatusBadRequest)
+					if brand != "seveneleven" && brand != "7eleven" {
+						s.Logger.Errorf("Unknown vendor brand '%s' for ESN %s (only '7eleven'/'seveneleven' supported)", brand, cameraid)
+						http.Error(w, fmt.Sprintf("Unknown vendor brand: %s (only '7eleven'/'seveneleven' supported)", brand), http.StatusBadRequest)
 						return
 					}
+					// Normalize to registered vendor name
+					if brand == "seveneleven" {
+						vendor["brand"] = "7eleven"
+					}
 				} else {
-					// Default to seveneleven if brand not specified
-					vendor["brand"] = "seveneleven"
-					s.Logger.Infof("Defaulting to 'seveneleven' vendor for ESN %s", cameraid)
+					// Default to 7eleven if brand not specified (matches registered name)
+					vendor["brand"] = "7eleven"
+					s.Logger.Infof("Defaulting to '7eleven' vendor for ESN %s", cameraid)
 				}
 			}
 		}

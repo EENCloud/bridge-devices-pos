@@ -21,6 +21,9 @@ cleanup() {
     # Kill any remaining bridge-devices-pos processes
     pkill -f "bridge-devices-pos" 2>/dev/null || true
     
+    # Kill any processes using our ports
+    fuser -k 33480/tcp 6324/tcp 2>/dev/null || true
+    
     # Cleanup temp files
     [[ "$cleanup_temp" == "true" ]] && rm -f "$temp_file" 2>/dev/null || true
     
@@ -33,8 +36,8 @@ trap cleanup EXIT INT TERM
 
 # Parse CLI arguments
 JSONL_FILE=""
-ESN="10096352"
-REGISTER_IP="192.168.1.6"
+ESN="1000face"
+REGISTER_IP="192.168.1.5"
 FULL_FILE="false"
 SIM_MODE="false"
 SHOW_HELP="false"
@@ -61,9 +64,9 @@ while [[ $# -gt 0 ]]; do
         *)
             if [[ -z "$JSONL_FILE" ]]; then
                 JSONL_FILE="$1"
-            elif [[ "$ESN" == "10096352" ]]; then
+            elif [[ "$ESN" == "1000face" ]]; then
                 ESN="$1"
-            elif [[ "$REGISTER_IP" == "192.168.1.6" ]]; then
+            elif [[ "$REGISTER_IP" == "192.168.1.5" ]]; then
                 REGISTER_IP="$1"
             fi
             shift
@@ -73,7 +76,7 @@ done
 
 # Set default file if not provided
 if [[ -z "$JSONL_FILE" ]]; then
-JSONL_FILE="data/7eleven/register_logs/extracted_jsonl/register_6.jsonl"
+JSONL_FILE="data/7eleven/register_logs/extracted_jsonl/register_5.jsonl"
 fi
 
 # Config
@@ -82,10 +85,17 @@ VENDOR_PORT="6324"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Output
-ANNT_FILE="data/pos-test-results/annts_${TIMESTAMP}.jsonl"
+ANNT_FILE="data/pos-test-results/annts_${TIMESTAMP}.json"
 ANALYSIS_FILE="data/pos-test-results/analysis_${TIMESTAMP}.txt"
 
 log() { echo "[$(date '+%H:%M:%S')] $1"; }
+
+# Initial cleanup - kill any conflicting processes/ports
+log "Cleaning up any existing processes and port conflicts..."
+fuser -k 33480/tcp 6324/tcp 2>/dev/null || true
+docker-compose down 2>/dev/null || true  
+pkill -f bridge-devices-pos 2>/dev/null || true
+sleep 2
 
 if [[ "$SHOW_HELP" == "true" ]]; then
     echo "Usage: $0 [options] [jsonl_file] [esn] [register_ip]"
@@ -96,16 +106,16 @@ if [[ "$SHOW_HELP" == "true" ]]; then
     echo "  --help, -h  Show this help message"
     echo ""
     echo "Arguments:"
-    echo "  jsonl_file  JSONL file to process (default: register_6.jsonl)"
-    echo "  esn         ESN to use (default: 10096352)"
-    echo "  register_ip Register IP (default: 192.168.1.6)"
+    echo "  jsonl_file  JSONL file to process (default: register_5.jsonl)"
+    echo "  esn         ESN to use (default: 1000face)"
+    echo "  register_ip Register IP (default: 192.168.1.5)"
     echo ""
     echo "Modes:"
     echo "  Default:    External data injection via curl (no fudging)"
     echo "  --sim:      Built-in simulator with timestamp/transaction/terminal fudging"
     echo ""
     echo "Output:"
-    echo "  ANNTs:      JSONL format"
+    echo "  ANNTs:      Pretty JSON format"
     echo "  Analysis:   Summary text file"
     exit 0
 fi
@@ -224,21 +234,49 @@ log "Collecting ANNTs..."
 raw_annts="/tmp/raw_annts_$$.json"
 curl -s "http://localhost:$API_PORT/events?drain=true" > "$raw_annts"
 
-log "Converting to JSONL format..."
+log "Converting to pretty ETag format..."
 if [[ -s "$raw_annts" && "$(cat "$raw_annts")" != "[]" ]]; then
-    # Raw ANNTs are already in proper format - just convert array to JSONL
-    jq -c '.[]' "$raw_annts" > "$ANNT_FILE"
+    # Convert to proper ETag format with timestamp, cameraid, flags, op
+    jq --arg esn "$ESN" '[.[] | 
+    {
+      ($esn): {
+        "event": {
+          "ANNT": {
+            "timestamp": (now | strftime("%Y%m%d%H%M%S.") + (now * 1000 % 1000 | tostring)),
+            "cameraid": $esn,
+            "ns": .ns,
+            "flags": 2560,
+            "uuid": .uuid,
+            "seq": .seq,
+            "op": 1,
+            "mpack": .mpack
+          }
+        }
+      }
+    }]' "$raw_annts" > "$ANNT_FILE"
 else
     echo "" > "$ANNT_FILE"
 fi
 rm -f "$raw_annts"
 
 # Simple analysis from collected file  
-annt_count=$(wc -l < "$ANNT_FILE" 2>/dev/null || echo "0")
+annt_count=$(jq -r 'length' "$ANNT_FILE" 2>/dev/null || echo "0")
+
+# Count namespaces if we have ANNTs
+if [[ $annt_count -gt 0 ]]; then
+    ns_92_count=$(jq --arg esn "$ESN" '[.[] | .[$esn].event.ANNT.ns] | map(select(. == 92)) | length' "$ANNT_FILE" 2>/dev/null || echo "0")
+    ns_91_count=$(jq --arg esn "$ESN" '[.[] | .[$esn].event.ANNT.ns] | map(select(. == 91)) | length' "$ANNT_FILE" 2>/dev/null || echo "0")
+else
+    ns_92_count=0
+    ns_91_count=0
+fi
+
 echo "File: $JSONL_FILE" > "$ANALYSIS_FILE"
 echo "ESN: $ESN" >> "$ANALYSIS_FILE"
 echo "Transactions sent: $line_count" >> "$ANALYSIS_FILE"
 echo "ANNTs collected: $annt_count" >> "$ANALYSIS_FILE"
+echo "  - NS 92 (Sub transactions): $ns_92_count" >> "$ANALYSIS_FILE"
+echo "  - NS 91 (Complete transactions): $ns_91_count" >> "$ANALYSIS_FILE"
 echo "ANNTs file: $ANNT_FILE" >> "$ANALYSIS_FILE"
 echo "Timestamp: $TIMESTAMP" >> "$ANALYSIS_FILE"
 

@@ -1,6 +1,40 @@
 # Bridge Devices POS
 
-POS transaction processor. Converts POS data to ANNTs, routes by IP→ESN mapping.
+POS transaction processor. Converts POS data to ANNTs and sends them, routes by IP→ESN mapping.
+
+## Quick Test - Register message transformation to lquery format
+
+Test the complete POS logs → ANNTs transformation:
+
+```bash
+# 1. Clone repo
+git clone <repo-url>
+cd bridge-devices-pos
+
+# 2. Extract sample data from tar files
+# Place your register_logs_*.tar.gz files in data/7eleven/register_logs/tar_folder/
+./scripts/extract_json_from_logs.sh
+
+# 3. Run test script with sample file (10 transactions)
+./scripts/pos_test_script.sh data/7eleven/register_logs/extracted_jsonl/test_sample.jsonl
+
+# OR use default file (200 transactions from register_5.jsonl)
+./scripts/pos_test_script.sh
+
+# OR process entire jsonl file with --full flag
+./scripts/pos_test_script.sh --full
+
+# 4. Check results
+cat data/pos-test-results/analysis_<timestamp>.txt    # Summary stats
+head -n 50 data/pos-test-results/annts_<timestamp>.json | jq .
+```
+
+**What you'll see:**
+- **Small sample** (test_sample.jsonl): 10 transactions → ~3 ANNTs
+- **Default file** (register_5.jsonl): 200 transactions → ~125 ANNTs
+- **Full processing** (--full flag): Should process entire file
+- **Output types**: NS 92 (Sub transactions), NS 91 (Complete transactions)
+
 
 ## Build & Run
 
