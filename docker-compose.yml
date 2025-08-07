@@ -1,0 +1,20 @@
+version: '2'
+
+services:
+  point_of_sale:
+    image: bridge-devices-pos:latest
+    container_name: point_of_sale
+    environment:
+      - MODE=simulation
+      - SIM_TEST_PORT=6324
+      - PRODUCTION_PORT=6334
+      - POS_VERBOSE_LOGGING=false
+    network_mode: host
+    restart: always
+    shm_size: '2g'
+    tmpfs:
+      - /tmp
+    volumes:
+      - /opt/een/data:/opt/een/data:z
+      - /opt/een/var:/opt/een/var:z
+      - /opt/een/tmp:/opt/een/tmp

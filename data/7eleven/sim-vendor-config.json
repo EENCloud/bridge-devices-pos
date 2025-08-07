@@ -1,0 +1,20 @@
+{
+  "brand": "7eleven", 
+  "listen_port": 6324,
+  "esn_mappings": {
+    "172.31.99.1": "10000001",
+    "172.31.99.2": "1000face"
+  },
+  "registers": [
+    {
+      "store_number": "38551",
+      "terminal_number": "01", 
+      "ip_address": "172.31.99.1"
+    },
+    {
+      "store_number": "38551",
+      "terminal_number": "02",
+      "ip_address": "172.31.99.2" 
+    }
+  ]
+}

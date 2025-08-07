@@ -1,0 +1,76 @@
+# Build artifacts
+bridge-devices-pos
+dist/
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Scratch/temporary files
+scratch/
+tmp/
+
+# Dependencies
+vendor/
+go.work
+
+# IDE files
+.vscode/
+.idea/
+
+# Configuration files
+.luacheckrc
+
+# Log files
+*.log
+
+# Temporary files
+*~
+.tmp/
+
+# Tar and compressed files
+*.tar
+*.gz
+*.tar.gz
+
+# Database files (BadgerDB)
+*.db/
+scratch/
+
+# POS test results
+data/pos-test-results/
+
+# Raw log files from RIS listener (but keep folder structure)
+!data/7eleven/register_logs/ris-listener/.gitkeep
+
+# Tar files in tar_folder (but keep folder structure)
+data/7eleven/register_logs/tar_folder/*
+!data/7eleven/register_logs/tar_folder/.gitkeep
+
+ 
